@@ -1,6 +1,6 @@
 # pico-kvstore
 
-**Lightweight, Robust, and Secure Key-Value Store for Raspberry Pi Pico**
+**Lightweight and Secure Key-Value Store for Raspberry Pi Pico**
 
 `pico-kvstore` is a compact yet powerful storage solution tailored specifically for Raspberry Pi Pico (RP2040) and Pico 2 (RP2350). It provides an intuitive API optimized for embedded systems, along with a reliable log-structured storage mechanism and built-in AES-128-GCM encryption, enabling easy and secure data handling.
 
@@ -92,7 +92,7 @@ For detailed benchmark methodology and further analysis, refer to [benchmark.c](
 ## Security and Encryption
 
 - **Encryption Method:** Authenticated encryption using AES-128-GCM.
-- **Key Derivation:** Secure HKDF-based key derivation from device-specific IDs or OTP.
+- **Key Derivation:** Secure HKDF-based key derivation from device-specific IDs is implemented; an OTP-based configuration is also possible (with additional implementation).
 - **Memory Safety:** Encryption keys are immediately and securely erased after usage.
 
 ---
