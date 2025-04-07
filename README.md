@@ -79,7 +79,8 @@ int main(void) {
 
 Performance comparison between Normal and Secure versions of pico-kvstore (16-byte keys and values, latency based on number of stored records):
 
-![Benchmark Results](output.png)
+<img src="https://github.com/user-attachments/assets/d145d9be-ad97-46f4-bc37-1429c6c5674c" width=800 alt="benchmark result"/>
+
 
 - **Secure KVS** incurs slight overhead due to AES-128-GCM encryption and integrity checks.
 - Latency increases moderately as stored records increase, remaining practical for typical embedded applications.
