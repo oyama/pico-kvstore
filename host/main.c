@@ -63,7 +63,7 @@ static int command_get(const char *path, const char *key) {
     kvs_t *kvs = kvs_logkvs_create(bd);
     char value[4096] = {0};
     size_t length = 0;
-    int rc = kvs->get(kvs, key, value, sizeof(value), &length);
+    int rc = kvs->get(kvs, key, value, sizeof(value), &length, 0);
     if (rc == KVSTORE_SUCCESS)
         printf("%s\n", value);
     else if (rc == KVSTORE_ERROR_ITEM_NOT_FOUND)
