@@ -62,7 +62,7 @@ static void test_basic_crud(kvs_t *kvs) {
     result = kvs->get(kvs, key3, value, sizeof(value), &value_size, 0);
     assert(result == KVSTORE_SUCCESS);
     assert(strlen(key3_value1) == value_size);
-    assert(strcmp(key3_value1, value) == 0);
+    assert(memcmp(key3_value1, value, value_size) == 0);
 
     result = kvs->delete(kvs, key3);
     assert(result == KVSTORE_SUCCESS);
@@ -121,7 +121,7 @@ static void test_various_size_key(kvs_t *kvs) {
         result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
         assert(result == KVSTORE_SUCCESS);
         assert(strlen(value) == value_size);
-        assert(strcmp(value, buffer) == 0);
+        assert(memcmp(value, buffer, strlen(value)) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
     }
@@ -142,8 +142,8 @@ static void test_various_size_value(kvs_t *kvs) {
     test_printf("1 to 4096 bytes value");
     int result;
     char key[] = "various-value";
-    char value[64*1024];
-    char buffer[64*1024];
+    char value[4*1024];
+    char buffer[4*1024];
     for (size_t size = 1; size < 4096; size++) {
         for (size_t i = 0; i < size; i++)
             value[i] = 'a' + (i % 26);

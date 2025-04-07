@@ -254,14 +254,12 @@ static int read_record(kvs_t *kvs, uint8_t bank, uint32_t offset, const char *ke
     *flags = header.flags;
 
     if ((!key_size) || (key_size >= MAX_KEY_SIZE)) {
-        printf("invalid 1\n");
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
 
     total_size = key_size + data_size;
 
     if ((total_size < key_size) || (total_size < data_size)) {
-        printf("invalid 2\n");
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
     /* NOTE:
@@ -353,7 +351,6 @@ static int read_record(kvs_t *kvs, uint8_t bank, uint32_t offset, const char *ke
     }
 
     if (validate && (crc != header.crc)) {
-        printf("invalid 4\n");
         ret = KVSTORE_ERROR_INVALID_DATA_DETECTED;
         goto end;
     }
@@ -592,7 +589,6 @@ static int _set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
         hash = 0;
     } else {
         // mutex.lock()
-
         if (ih->header.magic == kvstore_magic) {
             ret = garbage_collection(kvs);
             if (ret)
@@ -630,7 +626,6 @@ static int _set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
             goto fail;
         }
         ih->bd_base_offset = context->free_space_offset;
-
         check_erase_before_write(kvs, context->active_bank, ih->bd_base_offset, rec_size, false);
     }
     ret = KVSTORE_SUCCESS;

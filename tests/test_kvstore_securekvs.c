@@ -100,7 +100,7 @@ static void test_various_size_key(kvs_t *kvs) {
         assert(result == KVSTORE_SUCCESS);
         result = kvs->get(kvs, key, buffer, sizeof(buffer), NULL, 0);
         assert(result == KVSTORE_SUCCESS);
-        assert(strcmp(value, buffer) == 0);
+        assert(memcmp(value, buffer, strlen(value)) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
     }
