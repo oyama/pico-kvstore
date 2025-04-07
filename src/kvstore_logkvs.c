@@ -1015,7 +1015,7 @@ kvs_t *kvs_logkvs_create(blockdevice_t *bd) {
     if (context->device == NULL)
         goto fail;
 
-    context->master_record_offset = align_up(0, bd->program_size);
+    context->master_record_offset = 0;
     context->master_record_size = record_size(kvs, master_rec_key, sizeof(master_record_data_t));
 
     update_bank_params(kvs);

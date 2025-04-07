@@ -117,8 +117,10 @@ static void test_various_size_key(kvs_t *kvs) {
 
         result = kvs->set(kvs, key, value, strlen(value), 0);
         assert(result == KVSTORE_SUCCESS);
-        result = kvs->get(kvs, key, buffer, sizeof(buffer), NULL, 0);
+        size_t value_size;
+        result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
         assert(result == KVSTORE_SUCCESS);
+        assert(strlen(value) == value_size);
         assert(strcmp(value, buffer) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
@@ -137,25 +139,22 @@ static void test_various_size_key(kvs_t *kvs) {
 }
 
 static void test_various_size_value(kvs_t *kvs) {
-    test_printf("1 to 2048-byte value");
+    test_printf("1 to 4096 bytes value");
     int result;
     char key[] = "various-value";
-    char value[4096];
-    char buffer[4096 + 1] = {0};
-    for (size_t size = 1; size < 2048; size++) {
+    char value[64*1024];
+    char buffer[64*1024];
+    for (size_t size = 1; size < 4096; size++) {
         for (size_t i = 0; i < size; i++)
             value[i] = 'a' + (i % 26);
 
-        result = kvs->set(kvs, key, value, strlen(value), 0);
+        result = kvs->set(kvs, key, value, size, 0);
         assert(result == KVSTORE_SUCCESS);
-        result = kvs->get(kvs, key, buffer, sizeof(buffer), NULL, 0);
+        size_t value_size = 0;
+        result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
         assert(result == KVSTORE_SUCCESS);
-
-        if (strcmp(value, buffer) != 0) {
-            printf("fail at %u\n", size);
-        }
-
-        assert(strcmp(value, buffer) == 0);
+        assert(value_size == size);
+        assert(memcmp(value, buffer, size) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
     }
