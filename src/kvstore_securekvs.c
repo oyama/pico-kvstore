@@ -12,8 +12,14 @@
 #include "mbedtls/hkdf.h"
 #include "mbedtls/md.h"
 #include "mbedtls/platform_util.h"
+
+#if PICO_ON_DEVICE
 #include "pico/rand.h"
 #include "pico/unique_id.h"
+#else
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
+#endif
 
 #define SECURESTORE_REVISION 1
 #define ENCRYPT_BLOCK_SIZE 16
@@ -21,6 +27,11 @@
 #define IV_SIZE 16
 #define SCRATCH_BUF_SIZE 256
 #define DERIVED_KEY_SIZE (128 / 8)
+
+#ifndef MIN
+#define MIN(a, b) ((a < b) ? a : b)
+#endif
+
 
 static const char *ENCRYPT_PREFIX = "ENC";
 
@@ -51,10 +62,49 @@ typedef struct {
     inc_set_handle_t *ih;
 } kvs_securekvs_context_t;
 
+/*
+ * NOTE: The pico-sdk in the host environment does not include pico_rand,
+ *       pico_mbedtls_crypto, or pico_unique_id, so they need to be followed.
+ */
+#if !PICO_ON_DEVICE
+
+typedef uint8_t rng_128_t;
+
+void get_rand_128(rng_128_t *rand) {
+    uint8_t *out = rand;
+    int ret = 0;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    const char *pers = "my_random_personalization";
+
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                  (const unsigned char *) pers, strlen(pers));
+    if (ret != 0) {
+        fprintf(stderr, "mbedtls_ctr_drbg_seed failed: -0x%04x\n", -ret);
+        goto cleanup;
+    }
+
+    ret = mbedtls_ctr_drbg_random(&ctr_drbg, out, 16);
+    if (ret != 0)
+    {
+        fprintf(stderr, "mbedtls_ctr_drbg_random failed: -0x%04x\n", -ret);
+        goto cleanup;
+    }
+cleanup:
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return;
+}
+#endif
+
 static int pico_unique_id_loader(uint8_t *key) {
     // NOTE: IS NOT SECURE
     memset(key, 0, DERIVED_KEY_SIZE);
+#if PICO_ON_DEVICE
     pico_get_unique_board_id((pico_unique_board_id_t *)key);
+#endif
     return 0;
 }
 
