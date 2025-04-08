@@ -4,6 +4,8 @@
 |--------------------------------|----------------------------------------------------------|
 | [hello](hello.c)               | Hello Key-Value Store world.                             |
 | [secure\_hello](secure_hello.c)| Hello World with Encrypted Key-Value Store.              |
+| [secure\_kvs\_init](secure_kvs_init.c) | Sample initialization function `kvs_init()` that derives and encrypts a secret key based on device ID.|
+| [secure\_kvs\_init\_otp](secure_kvs_init_otp.c) | Sample initialization function `kvs_init()` that derives and encrypts the secret key based on the OTP.|
 | [benchmark](benchmark.c)       | Benchmark Test.                                          |
 
 ## Building sample code

@@ -18,8 +18,8 @@ make
 
 ```
 kvstore-util create -f <filename> [-s <size>]
-kvstore-util set -f <filename> -k <key> -v <value>
-kvstore-util get -f <filename> -k <key>
+kvstore-util set -f <filename> -k <key> -v <value> [-e <encrypt-key>]
+kvstore-util get -f <filename> -k <key> [-e <encrypt-key>]
 kvstore-util delete -f <filename> -k <key>
 kvstore-util find -f <filename> [-k <prefix>]
 ```
@@ -36,13 +36,13 @@ kvstore-util find -f <filename> [-k <prefix>]
 
 ### Options
 
-| Option               | Description                                                                       |
-|----------------------|-----------------------------------------------------------------------------------|
-| `-f <filename>`      | Path to the KVS image file (required)                                              |
-| `-k <key>`           | Key to operate on (used with `get`, `set`, `delete`, `find`)                      |
-| `-v <value>`         | Value to store (required for `set`)                                               |
-| `-s <size>`          | Image size in bytes (used only with `create`, default: `128KB`)                   |
-
+| Option               | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `-f <filename>`      | Path to the KVS image file (required)                                                |
+| `-k <key>`           | Key to operate on (used with `get`, `set`, `delete`, `find`)                         |
+| `-v <value>`         | Value to store (required for `set`)                                                  |
+| `-s <size>`          | Image size in bytes (used only with `create`, default: `128KB`)                      |
+| `-e <encrypt-key>`   | The encryption key to be used for storage, specified as a 128-bit hex (32 characters)|
 
 ## Examples
 
