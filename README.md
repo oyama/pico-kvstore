@@ -46,32 +46,102 @@ Ideal for scenarios including:
 
 ## Quick Start Example
 
-Below is a simple demonstration of using `pico-kvstore`:
+This guide demonstrates how to embed Wi-Fi credentials into your Raspberry Pi Pico using pico-kvstore. In this example, the firmware retrieves the Wi-Fi SSID and password from the key-value store. Follow these steps:
+
+### 1. Build and Install Firmware
+
+Prepare a firmware that reads Wi-Fi credentials from the key-value store. For example, create a source file with the following code (this example is also available in the [examples](examples/) directory):
 
 ```c
 #include <stdio.h>
-#include <string.h>
 #include "pico/stdlib.h"
 #include "kvstore.h"
 
 int main(void) {
+    char ssid[33] = {0};
+    char password[64] = {0};
+    size_t len = 0;
+    int rc;
+
     stdio_init_all();
     kvs_init();
 
-    const char *password = "Wi-Fi Password";
-    kvs_set("PASSWORD", password, strlen(password), 0);
-
-    char buffer[64];
-    size_t read_size;
-    if (kvs_get("PASSWORD", buffer, sizeof(buffer), &read_size) == 0) {
-        printf("Retrieved PASSWORD: %s (%u bytes)\n", buffer, read_size);
+    rc = kvs_get("SSID", ssid, sizeof(ssid), &len);
+    if (rc != KVSTORE_SUCCESS) {
+        printf("%s\n", kvs_strerror(rc));
+        return 1;
+    }
+    rc = kvs_get("PASSWORD", password, sizeof(password), &len);
+    if (rc != KVSTORE_SUCCESS) {
+        printf("%s\n", kvs_strerror(rc));
+        return 1;
     }
 
-    kvs_delete("PASSWORD");
-
+    printf("Wi-Fi credential:\n"
+           "SSID=%s\n"
+           "PASSWORD=%s\n",
+           ssid, password);
     return 0;
 }
 ```
+
+Build the firmware by executing the following commands:
+```bash
+mkdir build; cd build
+PICO_SDK_PATH=/path/to/pico-sdk cmake ..
+make hello
+```
+
+Flash the resulting `hello.uf2` firmware onto your Pico (by putting it in `BOOTSEL` mode). At this point, the Pico will attempt to read the _SSID_ and _PASSWORD_ from the key-value store but will output an error message such as:
+```
+item not found
+```
+This is expected since the key-value store has not yet been populated.
+
+
+### 2. Create a Key Value Store Image Using the Host Tool
+
+Next, switch to the host tools to create the storage image that the Pico firmware will access. The host tools are provided in the [host](host/) directory. Build the host tool `kvstore-util` as follows:
+
+```bash
+cd ../host
+mkdir build; cd build
+PICO_SDK_PATH=/path/to/pico-sdk cmake ..
+make
+```
+Now create a key-value store image file `setting.bin` and populate it with the Wi-Fi credentials:
+
+```bash
+./kvstore-util create -f setting.bin
+./kvstore-util set -f setting.bin -k SSID -v "Home-Wi-Fi"
+./kvstore-util set -f setting.bin -k PASSWORD -v "Secret Password"
+```
+
+### 3. Write the Storage Image to Pico
+
+Write the generated storage image `setting.bin` to the Pico’s flash memory using [picotool](https://github.com/raspberrypi/picotool). Use the offset appropriate for your device:
+
+- For a Pico with 2MB flash:
+
+```bash
+picotool load -o 0x101de000 setting.bin
+```
+
+- For a Pico 2 with 4MB flash:
+
+```bash
+picotool load -o 0x103de000 setting.bin
+```
+
+### 4. Verify on Pico
+
+After flashing the storage image, reboot your Pico. The firmware will now be able to load the key-value store correctly. You should see the following output on the UART or USB CDC console:
+```
+Wi-Fi credential:
+SSID=Home-Wi-Fi
+PASSWORD=Secret Password
+```
+This confirms that the Pico has successfully retrieved the Wi-Fi credentials from the key-value store image created with the host tools.
 
 ---
 
