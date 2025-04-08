@@ -71,17 +71,15 @@ static int create_derive_key(kvs_securekvs_context_t *ctx, uint8_t *salt_buf, si
     } else {
         pico_unique_id_loader(encrypt_key);
     }
+
     return mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), salt_buf, salt_buf_size,
                         encrypt_key, encrypt_key_size, NULL, 0, derive_key, derive_key_size);
 }
 
-//    ret = create_derive_key(ctx, salt_buf, salt_buf_size, encrypt_key, sizeof(encrypt_key),
-//                            derive_key, sizeof(derive_key));
-
 static int gcm_init_and_starts(kvs_securekvs_context_t *ctx, mbedtls_gcm_context *gcm_ctx,
                                const uint8_t *iv, size_t iv_len, const uint8_t *key_data,
                                size_t key_bits, const void *aad, size_t aad_len,
-                               int encrypt /* MBEDTLS_GCM_ENCRYPT or MBEDTLS_GCM_DECRYPT */) {
+                               int encrypt) {
     (void)ctx;
     (void)aad;
     (void)aad_len;
@@ -104,15 +102,11 @@ static int gcm_update_chunk(mbedtls_gcm_context *gcm_ctx, const uint8_t *input, 
 }
 
 static int gcm_finish_and_tag(mbedtls_gcm_context *gcm_ctx, uint8_t *tag, size_t tag_len) {
-    // 暗号化時: タグ生成
     return mbedtls_gcm_finish(gcm_ctx, tag, tag_len);
 }
 
 static int gcm_finish_and_check_tag(mbedtls_gcm_context *gcm_ctx, const uint8_t *tag,
                                     size_t tag_len) {
-    // 復号時: タグ検証 (mbedtls_gcm_finish で生成したタグと比較する方法)
-    // mbedtls_gcm_finish() は暗号・復号共通ですが、復号の場合は生成したタグを
-    // ユーザ側で受信済みタグと比較する必要があります。
     uint8_t calc_tag[16];
     int ret = mbedtls_gcm_finish(gcm_ctx, calc_tag, tag_len);
     if (ret != 0) {
@@ -158,7 +152,6 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
     if (flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG) {
         get_rand_128((rng_128_t *)&ctx->ih->metadata.iv);
 
-        // ここで GCM 用の鍵を導出 (共通で使う salt を "GCM" + key)
         uint8_t encrypt_key[DERIVED_KEY_SIZE] = {0};
         uint8_t derive_key[DERIVED_KEY_SIZE] = {0};
         memset(ctx->scratch_buf, 0, SCRATCH_BUF_SIZE);
@@ -174,6 +167,9 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
         ctx->ih->gcm_ctx = calloc(1, sizeof(mbedtls_gcm_context));
         os_ret = gcm_init_and_starts(ctx, ctx->ih->gcm_ctx, ctx->ih->metadata.iv, IV_SIZE,
                                      derive_key, 128, NULL, 0, MBEDTLS_GCM_ENCRYPT);
+        mbedtls_platform_zeroize(encrypt_key, sizeof(encrypt_key));
+        mbedtls_platform_zeroize(derive_key, sizeof(derive_key));
+
         if (os_ret) {
             ret = KVSTORE_ERROR_FAILED_OPERATION;
             goto fail;
@@ -278,7 +274,7 @@ end:
 static int set_add_finalize(kvs_t *kvs, kvs_inc_set_handle_t *handle) {
     int os_ret;
     int ret = KVSTORE_SUCCESS;
-    uint8_t tag_buf[CMAC_SIZE] = {0};  // GCMタグ(16バイト)を使うため使い回し
+    uint8_t tag_buf[CMAC_SIZE] = {0};
 
     kvs_securekvs_context_t *ctx = kvs->context;
 
@@ -291,7 +287,6 @@ static int set_add_finalize(kvs_t *kvs, kvs_inc_set_handle_t *handle) {
         goto end;
     }
 
-    // GCMタグ生成
     if (ctx->ih->metadata.create_flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG && ctx->ih->gcm_ctx) {
         os_ret = gcm_finish_and_tag(ctx->ih->gcm_ctx, tag_buf, CMAC_SIZE);
         if (os_ret) {
@@ -299,8 +294,6 @@ static int set_add_finalize(kvs_t *kvs, kvs_inc_set_handle_t *handle) {
             goto end;
         }
     } else {
-        // 暗号化不要の場合はタグ不要(運用ポリシー次第)
-        // ここでは一応0埋めタグを保存しておく例
         memset(tag_buf, 0, CMAC_SIZE);
     }
 
@@ -360,6 +353,8 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
         ctx->ih->gcm_ctx = calloc(1, sizeof(mbedtls_gcm_context));
         os_ret = gcm_init_and_starts(ctx, ctx->ih->gcm_ctx, ctx->ih->metadata.iv, IV_SIZE,
                                      derive_key, 128, NULL, 0, MBEDTLS_GCM_DECRYPT);
+        mbedtls_platform_zeroize(encrypt_key, sizeof(encrypt_key));
+        mbedtls_platform_zeroize(derive_key, sizeof(derive_key));
         if (os_ret) {
             ret = KVSTORE_ERROR_FAILED_OPERATION;
             goto end;

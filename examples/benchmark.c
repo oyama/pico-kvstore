@@ -11,8 +11,6 @@
 #define KVSTORE_BANK_DEFAULT_SIZE  (128 * 1024)
 #define KVSTORE_BANK_OFFSET        (PICO_FLASH_BANK_STORAGE_OFFSET - KVSTORE_BANK_DEFAULT_SIZE)
 
-
-
 static void print_progress(const char *label, size_t current, size_t total) {
     int num_dots = (int)((double)current / total * (50 - strlen(label)));
     int num_spaces = (50 - strlen(label)) - num_dots;

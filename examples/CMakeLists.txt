@@ -29,6 +29,18 @@ target_link_libraries(secure_hello PRIVATE
 pico_enable_stdio_usb(secure_hello 1)
 pico_add_extra_outputs(secure_hello)
 
+add_executable(secure_hello_otp secure_hello.c secure_kvs_init_otp.c)
+target_link_libraries(secure_hello_otp PRIVATE
+  pico_stdlib
+  kvstore
+  blockdevice_flash
+  kvstore_logkvs
+  kvstore_securekvs
+  pico_btstack_flash_bank_headers
+)
+pico_enable_stdio_usb(secure_hello_otp 1)
+pico_add_extra_outputs(secure_hello_otp)
+
 add_executable(benchmark benchmark.c)
 target_compile_options(benchmark PRIVATE -O2)
 target_link_libraries(benchmark PRIVATE
