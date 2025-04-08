@@ -1,13 +1,3 @@
-add_executable(password password.c)
-target_link_libraries(password PRIVATE
-  pico_stdlib
-  kvstore
-  kvstore_default
-)
-pico_enable_stdio_usb(password 1)
-pico_add_extra_outputs(password)
-
-
 add_executable(hello hello.c)
 target_link_libraries(hello PRIVATE
   pico_stdlib
