@@ -92,7 +92,7 @@ For detailed benchmark methodology and further analysis, refer to [benchmark.c](
 ## Security and Encryption
 
 - **Encryption Method:** Authenticated encryption using AES-128-GCM.
-- **Key Derivation:** Secure HKDF-based key derivation from device-specific IDs is implemented; an OTP-based configuration is also possible (refer to [example](examples/secure_fs_init_otp.c)).
+- **Key Derivation:** Secure HKDF-based key derivation from device-specific IDs is implemented; an OTP-based configuration is also possible (refer to [example](examples/secure_kvs_init_otp.c)).
 - **Memory Safety:** Encryption keys are immediately and securely erased after usage.
 
 ---
