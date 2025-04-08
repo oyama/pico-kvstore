@@ -30,7 +30,8 @@ static void show_usage(void) {
            "    picotool load -o <offset> <filename>\n"
            "\n"
            "    Example: (Writes to the area used by default 'kvs_init()')\n"
-           "        picotool load -o 0x101de000 kvstore.bin\n"
+           "        picotool load -o 0x101de000 kvstore.bin  # for Pico\n"
+           "        picotool load -o 0x103de000 kvstore.bin  # for Pico 2\n"
            );
 }
 
@@ -66,10 +67,8 @@ static int command_get(const char *path, const char *key) {
     int rc = kvs->get(kvs, key, value, sizeof(value), &length, 0);
     if (rc == KVSTORE_SUCCESS)
         printf("%s\n", value);
-    else if (rc == KVSTORE_ERROR_ITEM_NOT_FOUND)
-        fprintf(stderr, "Item not found\n");
     else
-        fprintf(stderr, "error rc=%d\n", rc);
+        fprintf(stderr, "%s\n", kvs_strerror(rc));
 
     kvs_logkvs_free(kvs);
     blockdevice_file_free(bd);
@@ -111,7 +110,7 @@ static int command_set(const char *path, const char *key, const char *value) {
 
     int rc = kvs->set(kvs, key, value, strlen(value), 0);
     if (rc != KVSTORE_SUCCESS)
-        fprintf(stderr, "Error rc=%d\n", rc);
+        fprintf(stderr, "%s\n", kvs_strerror(rc));
 
     kvs_logkvs_free(kvs);
     blockdevice_file_free(bd);
@@ -130,7 +129,7 @@ static int command_delete(const char *path, const char *key) {
 
     int rc = kvs->delete(kvs, key);
     if (rc != KVSTORE_SUCCESS)
-        fprintf(stderr, "Error rc=%d\n", rc);
+        fprintf(stderr, "%s\n", kvs_strerror(rc));
     kvs_logkvs_free(kvs);
     blockdevice_file_free(bd);
     return rc;

@@ -82,6 +82,8 @@ int kvs_find(const char *prefix, kvs_find_t *ctx);
 int kvs_find_next(kvs_find_t *ctx, const char *key, size_t key_size);
 int kvs_find_close(kvs_find_t *ctx);
 
+char *kvs_strerror(int error);
+
 #ifdef __cplusplus
 }
 #endif

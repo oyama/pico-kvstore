@@ -55,3 +55,48 @@ int kvs_find_close(kvs_find_t *ctx) {
         return -1;
     return kvs->find_close(kvs, ctx);
 }
+
+char *kvs_strerror(int errnum) {
+    const char *str = "";
+    switch (errnum) {
+        case KVSTORE_SUCCESS:
+            str = "";
+            break;
+        case KVSTORE_ERROR_INVALID_DATA_DETECTED:
+            str = "invalid data detected";
+            break;
+        case KVSTORE_ERROR_INVALID_SIZE:
+            str = "invalid size";
+            break;
+        case KVSTORE_ERROR_INVALID_ARGUMENT:
+            str = "invalid argument";
+            break;
+        case KVSTORE_ERROR_ITEM_NOT_FOUND:
+            str = "item not found";
+            break;
+        case KVSTORE_ERROR_READ_FAILED:
+            str = "read failed";
+            break;
+        case KVSTORE_ERROR_WRITE_FAILED:
+            str = "write failed";
+            break;
+        case KVSTORE_ERROR_MEDIA_FULL:
+            str = "media full";
+            break;
+        case KVSTORE_ERROR_OUT_OF_RESOURCES:
+            str = "out of resources";
+            break;
+        case KVSTORE_ERROR_WRITE_PROTECTED:
+            str = "write protected";
+            break;
+        case KVSTORE_ERROR_FAILED_OPERATION:
+            str = "failed operation";
+            break;
+        case KVSTORE_ERROR_AUTHENTICATION_FAILED:
+            str = "authentication failed";
+            break;
+        default:
+            str = "unknown error";
+    }
+    return (char *)str;
+}
