@@ -262,12 +262,7 @@ static int read_record(kvs_t *kvs, uint8_t bank, uint32_t offset, const char *ke
     if ((total_size < key_size) || (total_size < data_size)) {
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
-    /* NOTE:
-     * The Mbed OS implementation has `offset + total_size >= context->size`.
-     * It has a problem that it considers a normal record that is just on the
-     * edge of the boundary to be an error.
-     */
-    if (offset + total_size > context->size) {
+    if (offset + total_size >= context->size) {
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
     if (data_offset > data_size) {
