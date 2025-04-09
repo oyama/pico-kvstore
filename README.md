@@ -60,18 +60,17 @@ Prepare a firmware that reads Wi-Fi credentials from the key-value store. For ex
 int main(void) {
     char ssid[33] = {0};
     char password[64] = {0};
-    size_t len = 0;
     int rc;
 
     stdio_init_all();
     kvs_init();
 
-    rc = kvs_get("SSID", ssid, sizeof(ssid), &len);
+    rc = kvs_get_str("SSID", ssid, sizeof(ssid));
     if (rc != KVSTORE_SUCCESS) {
         printf("%s\n", kvs_strerror(rc));
         return 1;
     }
-    rc = kvs_get("PASSWORD", password, sizeof(password), &len);
+    rc = kvs_get_str("PASSWORD", password, sizeof(password));
     if (rc != KVSTORE_SUCCESS) {
         printf("%s\n", kvs_strerror(rc));
         return 1;

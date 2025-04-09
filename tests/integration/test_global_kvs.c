@@ -37,18 +37,20 @@ static blockdevice_t *device;
 
 static void setup(void) {
     device = blockdevice_flash_create(KVSTORE_BANK_OFFSET, KVSTORE_BANK_DEFAULT_SIZE);
+
+    size_t length = device->size(device);
+    device->erase(device, 0, length);
+
     kvs_t *kvs = kvs_logkvs_create(device);
     kvs_assign(kvs);
 }
 
 static void cleanup(void) {
     kvs_t *kvs = kvs_global_instance();
-    //kvs->deinit(kvs);
 
     size_t length = device->size(device);
     device->erase(device, 0, length);
 
-    //kvs->deinit(kvs);
     free(kvs);
 }
 
@@ -79,6 +81,13 @@ void test_global_kvs(void) {
     result = kvs_get(key3, value, sizeof(value), &value_size);
     assert(result == KVSTORE_SUCCESS);
     assert(strlen(key3_value1) == value_size);
+    assert(memcmp(key3_value1, value, value_size) == 0);
+    printf(COLOR_GREEN("ok\n"));
+
+    test_printf("get_str");
+    value_size = 0;
+    result = kvs_get_str(key3, value, sizeof(value));
+    assert(result == KVSTORE_SUCCESS);
     assert(strcmp(key3_value1, value) == 0);
     printf(COLOR_GREEN("ok\n"));
 
@@ -126,8 +135,15 @@ void test_global_kvs_secure(void) {
     result = kvs_get(key3, value, sizeof(value), &value_size);
     assert(result == KVSTORE_SUCCESS);
     assert(strlen(key3_value1) == value_size);
+    assert(memcmp(key3_value1, value, value_size) == 0);
+    printf(COLOR_GREEN("ok\n"));
+
+    test_printf("get_str");
+    result = kvs_get_str(key3, value, sizeof(value));
+    assert(result == KVSTORE_SUCCESS);
     assert(strcmp(key3_value1, value) == 0);
     printf(COLOR_GREEN("ok\n"));
+
 
     test_printf("delete");
     result = kvs_delete(key3);
@@ -137,5 +153,5 @@ void test_global_kvs_secure(void) {
     assert(result == KVSTORE_ERROR_ITEM_NOT_FOUND);
     printf(COLOR_GREEN("ok\n"));
 
-//    cleanup();
+    cleanup();
 }

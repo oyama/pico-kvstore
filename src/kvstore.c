@@ -27,6 +27,18 @@ int kvs_get(const char *key, void *value, size_t buffer_size, size_t *value_size
     return kvs->get(kvs, key, value, buffer_size, value_size, 0);
 }
 
+int kvs_get_str(const char *key, char *value, size_t buffer_size) {
+    size_t value_size;
+    int ret = kvs_get(key, value, buffer_size, &value_size);
+    if (ret != KVSTORE_SUCCESS)
+        return ret;
+    if (value_size < buffer_size)
+        value[value_size] = '\0';
+    else
+        value[buffer_size] = '\0';
+    return KVSTORE_SUCCESS;
+}
+
 int kvs_delete(const char *key) {
     kvs_t *kvs = global_kvs;
     if (kvs == NULL) {

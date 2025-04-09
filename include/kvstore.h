@@ -77,6 +77,7 @@ kvs_t *kvs_global_instance(void);
 void kvs_assign(kvs_t *kvs);
 int kvs_set(const char *key, const void *value, size_t size, uint32_t flags);
 int kvs_get(const char *key, void *value, size_t buffer_size, size_t *value_size);
+int kvs_get_str(const char *key, char *value, size_t buffer_size);
 int kvs_delete(const char *key);
 int kvs_find(const char *prefix, kvs_find_t *ctx);
 int kvs_find_next(kvs_find_t *ctx, const char *key, size_t key_size);
