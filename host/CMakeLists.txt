@@ -28,7 +28,14 @@ target_link_libraries(kvstore-util PRIVATE
 
 # Import mbedtls from pico-sdk into the project directory.
 FetchContent_Declare(mbedtls SOURCE_DIR ${PICO_SDK_PATH}/lib/mbedtls EXCLUDE_FROM_ALL)
-FetchContent_MakeAvailable(mbedtls)
+# NOTE: The following procedure can be substituted by `FetchContent_MakeAvailable` in CMake version 3.14 or later
+#       https://cmake.org/cmake/help/latest/module/FetchContent.html#command:fetchcontent_makeavailable
+set(mbedtls_EXCLUDE_FROM_ALL TRUE)
+FetchContent_GetProperties(mbedtls)
+if(NOT mbedtls_POPULATED)
+  FetchContent_Populate(mbedtls)
+  add_subdirectory(${mbedtls_SOURCE_DIR} ${mbedtls_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 
 # The following libraries are not supported in the pico-sdk host environment.
 # This implementation uses an alternate implementation.
