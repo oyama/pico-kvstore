@@ -14,6 +14,7 @@ make
 
 > Environment variable `PICO_SDK_PATH` is required. Since this builds for the host, do not specify `PICO_BOARD`.
 
+> Note: Windows will not build correctly, so please run it under WSL (Windows Subsystem for Linux).
 ## Usage
 
 ```
