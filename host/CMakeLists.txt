@@ -11,15 +11,12 @@ pico_sdk_init()
 # The host program also uses the pico-kvstore implementation
 add_subdirectory(../ ${CMAKE_BINARY_DIR}/pico-kvstore)
 
-add_executable(kvstore-util
-  main.c
-  blockdevice_file.c
-)
+add_executable(kvstore-util main.c)
 target_compile_options(pico_stdlib INTERFACE -w)
 target_include_directories(kvstore-util PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 target_link_libraries(kvstore-util PRIVATE
   pico_stdlib
-  blockdevice
+  blockdevice_loopback
   kvstore
   kvstore_logkvs
   kvstore_securekvs

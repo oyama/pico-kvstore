@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "blockdevice_file.h"
+#include "blockdevice/loopback.h"
 #include "kvstore_logkvs.h"
 #include "kvstore_securekvs.h"
 #include <unistd.h>
@@ -54,11 +54,11 @@ static int secretkey_loader(uint8_t *secret_key) {
 }
 
 static int command_create(const char *path, size_t size) {
-    blockdevice_t *bd = blockdevice_file_create(path, size, 256);
+    blockdevice_t *bd = blockdevice_loopback_create(path, size, 256);
     kvs_t *kvs = kvs_logkvs_create(bd);
 
     kvs_logkvs_free(kvs);
-    blockdevice_file_free(bd);
+    blockdevice_loopback_free(bd);
     truncate(path, size);
     return 0;
 }
@@ -69,7 +69,7 @@ static int command_get(const char *path, const char *key) {
         fprintf(stderr, "File not found. Please 'create' it first\n");
         return 1;
     }
-    blockdevice_t *bd = blockdevice_file_create(path, size, 256);
+    blockdevice_t *bd = blockdevice_loopback_create(path, size, 256);
     kvs_t *kvs = kvs_logkvs_create(bd);
     kvs_t *underlying_kvs;
     if (enable_encrypt) {
@@ -91,7 +91,7 @@ static int command_get(const char *path, const char *key) {
     } else {
         kvs_logkvs_free(kvs);
     }
-    blockdevice_file_free(bd);
+    blockdevice_loopback_free(bd);
     return rc;
 }
 
@@ -102,7 +102,7 @@ static int command_find(const char *path, const char *prefix) {
         return 1;
     }
 
-    blockdevice_t *bd = blockdevice_file_create(path, size, 256);
+    blockdevice_t *bd = blockdevice_loopback_create(path, size, 256);
     kvs_t *kvs = kvs_logkvs_create(bd);
     kvs_t *underlying_kvs;
     if (enable_encrypt) {
@@ -124,7 +124,7 @@ static int command_find(const char *path, const char *prefix) {
     } else {
         kvs_logkvs_free(kvs);
     }
-    blockdevice_file_free(bd);
+    blockdevice_loopback_free(bd);
     return rc;
 }
 
@@ -135,7 +135,7 @@ static int command_set(const char *path, const char *key, const char *value) {
         return 1;
     }
 
-    blockdevice_t *bd = blockdevice_file_create(path, size, 256);
+    blockdevice_t *bd = blockdevice_loopback_create(path, size, 256);
     kvs_t *kvs = kvs_logkvs_create(bd);
     kvs_t *underlying_kvs;
     if (enable_encrypt) {
@@ -153,7 +153,7 @@ static int command_set(const char *path, const char *key, const char *value) {
     } else {
         kvs_logkvs_free(kvs);
     }
-    blockdevice_file_free(bd);
+    blockdevice_loopback_free(bd);
     return rc;
 }
 
@@ -164,7 +164,7 @@ static int command_delete(const char *path, const char *key) {
         return 1;
     }
 
-    blockdevice_t *bd = blockdevice_file_create(path, size, 256);
+    blockdevice_t *bd = blockdevice_loopback_create(path, size, 256);
     kvs_t *kvs = kvs_logkvs_create(bd);
     kvs_t *underlying_kvs;
     if (enable_encrypt) {
@@ -182,7 +182,7 @@ static int command_delete(const char *path, const char *key) {
     } else {
         kvs_logkvs_free(kvs);
     }
-    blockdevice_file_free(bd);
+    blockdevice_loopback_free(bd);
     return rc;
 }
 
