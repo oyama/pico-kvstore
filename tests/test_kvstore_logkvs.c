@@ -105,12 +105,13 @@ static void test_garbage_collection(kvs_t *kvs) {
 }
 
 static void test_various_size_key(kvs_t *kvs) {
-    test_printf("1 to 128-byte key");
     int result;
     char key[128] = {0};
     const char *value = "value";
     char buffer[4096];
     for (size_t size = 1; size < 128; size++) {
+        test_printf("%u-byte key", size);
+
         for (size_t i = 0; i < size; i++)
             key[i] = 'a' + (i % 26);
         key[size] = '\0';
@@ -124,8 +125,9 @@ static void test_various_size_key(kvs_t *kvs) {
         assert(memcmp(value, buffer, strlen(value)) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
+
+        printf(COLOR_GREEN("ok\n"));
     }
-    printf(COLOR_GREEN("ok\n"));
 
     test_printf("over 128-byte key");
     const char *over_size_key = "12345678901234567890123456789012345678901234567890"
@@ -139,12 +141,13 @@ static void test_various_size_key(kvs_t *kvs) {
 }
 
 static void test_various_size_value(kvs_t *kvs) {
-    test_printf("1 to 4096 bytes value");
     int result;
     char key[] = "various-value";
     char value[4*1024];
     char buffer[4*1024];
     for (size_t size = 1; size < 4096; size++) {
+        test_printf("%u-byte value", size);
+
         for (size_t i = 0; i < size; i++)
             value[i] = 'a' + (i % 26);
 
@@ -157,8 +160,41 @@ static void test_various_size_value(kvs_t *kvs) {
         assert(memcmp(value, buffer, size) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
+
+        printf(COLOR_GREEN("ok\n"));
     }
-    printf(COLOR_GREEN("ok\n"));
+}
+
+static void test_various_size_value_garbage_collection(kvs_t *kvs) {
+    kvs_logkvs_context_t *context = kvs->context;
+
+    int result;
+
+    char key[] = "key";
+    char value[4096];
+    char buffer[4096];
+    for (size_t size = 1; size <= sizeof(value); size++) {
+        test_printf("%u byte value garbage collection", size);
+
+        for (size_t i = 0; i < size; i++)
+            value[i] = 'a' + (i % 26);
+
+        uint32_t last_bank = context->active_bank;
+        while (true) {
+            result = kvs->set(kvs, key, value, size, 0);
+            assert(result == KVSTORE_SUCCESS);
+            if (context->active_bank != last_bank) {
+                break;
+            }
+        }
+        size_t buf_size;
+        result = kvs->get(kvs, key, buffer, sizeof(buffer), &buf_size, 0);
+        assert(result == KVSTORE_SUCCESS);
+        assert(size == buf_size);
+        assert(memcmp(value, buffer, size) == 0);
+
+        printf(COLOR_GREEN("ok\n"));
+    }
 }
 
 void test_kvstore_logkvs(void) {
@@ -174,6 +210,7 @@ void test_kvstore_logkvs(void) {
     test_garbage_collection(kvs);
     test_various_size_key(kvs);
     test_various_size_value(kvs);
+    test_various_size_value_garbage_collection(kvs);
 
     cleanup(heap);
     kvs_logkvs_free(kvs);

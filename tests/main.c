@@ -5,6 +5,7 @@
 
 extern void test_kvstore_logkvs(void);
 extern void test_kvstore_securekvs(void);
+extern void test_fault(void);
 
 int main(void) {
     stdio_init_all();
@@ -13,6 +14,7 @@ int main(void) {
 
     test_kvstore_logkvs();
     test_kvstore_securekvs();
+    test_fault();
 
     printf(COLOR_GREEN("All tests are ok\n"));
     while (1)

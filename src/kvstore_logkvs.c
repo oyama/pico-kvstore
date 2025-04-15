@@ -262,7 +262,13 @@ static int read_record(kvs_t *kvs, uint8_t bank, uint32_t offset, const char *ke
     if ((total_size < key_size) || (total_size < data_size)) {
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
-    if (offset + total_size >= context->size) {
+    /*
+     * NOTE:
+     * The Mbed OS implementation has `offset + total_size >= context->size`.
+     * It has a problem that it considers a normal record that is just on the
+     * edge of the boundary to be an error.
+     */
+    if (offset + total_size > context->size) {
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
     if (data_offset > data_size) {
@@ -439,7 +445,7 @@ static int garbage_collection(kvs_t *kvs) {
     kvs_logkvs_context_t *context = kvs->context;
 
     ram_index_entry_t *ram_index = (ram_index_entry_t *)context->ram_index;
-    uint32_t to_offset, to_next_offset;
+    uint32_t free_space_offset, to_offset, to_next_offset;
     int ret;
     size_t ind;
 
@@ -460,14 +466,18 @@ static int garbage_collection(kvs_t *kvs) {
         ram_index[ind].bd_offset = to_offset;
         to_offset = to_next_offset;
     }
+    free_space_offset = context->free_space_offset;
     to_offset = to_next_offset;
     context->free_space_offset = to_next_offset;
     context->active_bank = 1 - context->active_bank;
     context->bank_version++;
     ret = write_master_record(kvs, context->active_bank, context->bank_version, &to_offset);
-    if (ret)
+    if (ret) {
+        context->bank_version--;
+        context->active_bank = 1 - context->active_bank;
+        context->free_space_offset = free_space_offset;
         return ret;
-
+    }
     return KVSTORE_SUCCESS;
 }
 
@@ -568,9 +578,9 @@ static int _set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
     inc_set_handle_t *ih;
     bool need_gc = false;
 
-    if (!is_valid_key(key))
+    if (!is_valid_key(key)) {
         return KVSTORE_ERROR_INVALID_ARGUMENT;
-
+    }
     if (flags & ~(supported_flags | internal_flags))
         return KVSTORE_ERROR_INVALID_ARGUMENT;
 
@@ -1077,6 +1087,7 @@ fail:
 void kvs_logkvs_free(kvs_t *kvs) {
     kvs_logkvs_context_t *context = kvs->context;
 
+    blockdevice_stage_free(context->device);
     free(context->work_buf);
     free(context->key_buf);
     free(context->inc_set_handle);

@@ -86,12 +86,13 @@ static void test_basic_crud(kvs_t *kvs) {
 }
 
 static void test_various_size_key(kvs_t *kvs) {
-    test_printf("1 to 128-byte key");
     int result;
     char key[128] = {0};
     const char *value = "value";
     char buffer[4096];
     for (size_t size = 1; size < 128; size++) {
+        test_printf("%u-byte key", size);
+
         for (size_t i = 0; i < size; i++)
             key[i] = 'a' + (i % 26);
         key[size] = '\0';
@@ -103,8 +104,9 @@ static void test_various_size_key(kvs_t *kvs) {
         assert(memcmp(value, buffer, strlen(value)) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
+
+        printf(COLOR_GREEN("ok\n"));
     }
-    printf(COLOR_GREEN("ok\n"));
 
     test_printf("over 128-byte key");
     const char *over_size_key = "12345678901234567890123456789012345678901234567890"
@@ -118,12 +120,13 @@ static void test_various_size_key(kvs_t *kvs) {
 }
 
 static void test_various_size_value(kvs_t *kvs) {
-    test_printf("1 to 4096 bytes value");
     int result;
     char key[] = "various-value";
     char value[4096];
     char buffer[4096];
     for (size_t size = 1; size < 4096; size++) {
+        test_printf("%u-byte value", size);
+
         for (size_t i = 0; i < size; i++)
             value[i] = 'a' + (i % 26);
 
@@ -136,8 +139,9 @@ static void test_various_size_value(kvs_t *kvs) {
         assert(memcmp(value, buffer, size) == 0);
         result = kvs->delete(kvs, key);
         assert(result == KVSTORE_SUCCESS);
+
+        printf(COLOR_GREEN("ok\n"));
     }
-    printf(COLOR_GREEN("ok\n"));
 }
 
 
