@@ -1,4 +1,4 @@
-name: All Unittest
+name: Unittest
 on: [push]
 env:
   BUILD_TYPE: Debug
