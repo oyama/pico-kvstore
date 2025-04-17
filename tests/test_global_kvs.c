@@ -1,17 +1,11 @@
 #include <assert.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
-#include "pico/btstack_flash_bank.h"
-#include "blockdevice/flash.h"
 #include "kvstore.h"
 #include "kvstore_logkvs.h"
 #include "kvstore_securekvs.h"
-
-#define COLOR_GREEN(format) ("\e[32m" format "\e[0m")
-#define KVSTORE_BANK_DEFAULT_SIZE  (128 * 1024)
-#define KVSTORE_BANK_OFFSET        (PICO_FLASH_BANK_STORAGE_OFFSET - KVSTORE_BANK_DEFAULT_SIZE)
+#include "utils.h"
 
 
 static const char *key1 = "key1";
@@ -23,20 +17,11 @@ static const char *key2_value3 = "Val1 value of key 2            ";
 static const char *key3 = "This_is_the_name_of_key3";
 static const char *key3_value1 = "Data value of key 3 is the following";
 
-static void test_printf(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    int n = vprintf(format, args);
-    va_end(args);
-
-    printf(" ");
-    for (size_t i = 0; i < 50 - (size_t)n; i++) printf(".");
-}
 
 static blockdevice_t *device;
 
 static void setup(void) {
-    device = blockdevice_flash_create(KVSTORE_BANK_OFFSET, KVSTORE_BANK_DEFAULT_SIZE);
+    device = blockdevice_test_create();
 
     size_t length = device->size(device);
     device->erase(device, 0, length);

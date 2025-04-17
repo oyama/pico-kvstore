@@ -53,6 +53,8 @@ target_link_libraries(kvstore_default INTERFACE
 
 # NOTE: Additional targets are only included in the build of the pico-kvstore project root
 if("${CMAKE_CURRENT_LIST_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-    add_subdirectory(examples EXCLUDE_FROM_ALL)
+    if(PICO_ON_DEVICE)
+      add_subdirectory(examples EXCLUDE_FROM_ALL)
+    endif()
     add_subdirectory(tests EXCLUDE_FROM_ALL)
 endif()

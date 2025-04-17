@@ -5,20 +5,11 @@
 #include "pico/stdlib.h"
 #include "blockdevice_fault.h"
 #include "kvstore_logkvs.h"
+#include "utils.h"
 
 #define COLOR_GREEN(format)  ("\e[32m" format "\e[0m")
-#define HEAP_STORAGE_SIZE    (128 * 1024)
 
-static void test_printf(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    int n = vprintf(format, args);
-    va_end(args);
 
-    printf(" ");
-    for (size_t i = 0; i < 50 - (size_t)n; i++)
-        printf(".");
-}
 
 static void setup(blockdevice_t *device) {
     size_t length = device->size(device);
@@ -28,10 +19,10 @@ static void setup(blockdevice_t *device) {
 void test_set_fault(void) {
     test_printf("set fault");
 
-    blockdevice_t *heap = blockdevice_fault_create(HEAP_STORAGE_SIZE);
-    assert(heap != NULL);
-    setup(heap);
-    kvs_t *kvs = kvs_logkvs_create(heap);
+    blockdevice_t *underlying = blockdevice_test_create();
+    blockdevice_t *device = blockdevice_fault_create(underlying);
+    setup(device);
+    kvs_t *kvs = kvs_logkvs_create(device);
 
     const char KEY1[] = "key1";
     const char VALUE1[] = "normal operation#1";
@@ -44,8 +35,8 @@ void test_set_fault(void) {
     res = kvs->set(kvs, KEY2, VALUE2, strlen(VALUE2), 0);
     assert(res == KVSTORE_SUCCESS);
 
-    uint32_t program_count = blockdevice_fault_program_count(heap);
-    blockdevice_fault_set_fault_from(heap, program_count + 1);
+    uint32_t program_count = blockdevice_fault_program_count(device);
+    blockdevice_fault_set_fault_from(device, program_count + 1);
     res = kvs->set(kvs, KEY2, VALUE3, strlen(VALUE3), 0);
     assert(res == KVSTORE_ERROR_WRITE_FAILED);
 
@@ -60,7 +51,8 @@ void test_set_fault(void) {
     assert(memcmp(buffer, VALUE2, strlen(VALUE2)) == 0);
 
     kvs_logkvs_free(kvs);
-    blockdevice_fault_free(heap);
+    blockdevice_fault_free(device);
+    blockdevice_test_free(underlying);
 
     printf(COLOR_GREEN("ok\n"));
 }
@@ -68,9 +60,10 @@ void test_set_fault(void) {
 void test_garbage_collection_fault(void) {
     test_printf("garbage collection fault");
 
-    blockdevice_t *heap = blockdevice_fault_create(HEAP_STORAGE_SIZE);
-    setup(heap);
-    kvs_t *kvs = kvs_logkvs_create(heap);
+    blockdevice_t *underlying = blockdevice_test_create();
+    blockdevice_t *device = blockdevice_fault_create(underlying);
+    setup(device);
+    kvs_t *kvs = kvs_logkvs_create(device);
     kvs_logkvs_context_t *context = kvs->context;
 
     char KEY1[] = "key1";
@@ -88,14 +81,14 @@ void test_garbage_collection_fault(void) {
     assert(active_bank == context->active_bank);
 
     // enable fault mode
-    uint32_t program_count = blockdevice_fault_program_count(heap);
-    blockdevice_fault_set_fault_from(heap, program_count + 1);
+    uint32_t program_count = blockdevice_fault_program_count(device);
+    blockdevice_fault_set_fault_from(device, program_count + 1);
     result = kvs->set(kvs, KEY1, value, sizeof(value), 0);
     assert(result == KVSTORE_ERROR_WRITE_FAILED);
     assert(active_bank == context->active_bank);
 
     // disable fault mode
-    blockdevice_fault_set_fault_from(heap, 0);
+    blockdevice_fault_set_fault_from(device, 0);
     active_bank = context->active_bank;
     result = kvs->set(kvs, KEY1, value, sizeof(value), 0);
     assert(result == KVSTORE_SUCCESS);
@@ -108,7 +101,8 @@ void test_garbage_collection_fault(void) {
     assert(memcmp(buffer, value, sizeof(value)) == 0);
 
     kvs_logkvs_free(kvs);
-    blockdevice_fault_free(heap);
+    blockdevice_fault_free(device);
+    blockdevice_test_free(underlying);
 
     printf(COLOR_GREEN("ok\n"));
 }

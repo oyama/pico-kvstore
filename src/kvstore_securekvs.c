@@ -8,10 +8,10 @@
 #include <string.h>
 
 #include "kvstore.h"
-#include "mbedtls/gcm.h"
 #include "mbedtls/hkdf.h"
 #include "mbedtls/md.h"
 #include "mbedtls/platform_util.h"
+#include "kvstore_securekvs.h"
 
 #if PICO_ON_DEVICE
 #include "pico/rand.h"
@@ -22,9 +22,7 @@
 #endif
 
 #define SECURESTORE_REVISION 1
-#define ENCRYPT_BLOCK_SIZE 16
 #define CMAC_SIZE 16
-#define IV_SIZE 16
 #define SCRATCH_BUF_SIZE 256
 #define DERIVED_KEY_SIZE (128 / 8)
 
@@ -37,30 +35,6 @@ static const char *ENCRYPT_PREFIX = "ENC";
 
 static const uint32_t SECURITY_FLAGS =
     KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG | KVSTORE_REQUIRE_REPLAY_PROTECTION_FLAG;
-
-typedef struct {
-    uint16_t metadata_size;
-    uint16_t revision;
-    uint32_t data_size;
-    uint32_t create_flags;
-    uint8_t iv[IV_SIZE];
-} record_metadata_t;
-
-typedef struct {
-    record_metadata_t metadata;
-    char *key;
-    uint32_t offset_in_data;
-    uint8_t ctr_buf[ENCRYPT_BLOCK_SIZE];
-    mbedtls_gcm_context *gcm_ctx;
-    void *underlying_handle;
-} inc_set_handle_t;
-
-typedef struct {
-    kvs_t *underlying_kvs;
-    int (*secretkey_loader)(uint8_t *key);
-    uint8_t *scratch_buf;
-    inc_set_handle_t *ih;
-} kvs_securekvs_context_t;
 
 /*
  * NOTE: The pico-sdk in the host environment does not include pico_rand,
@@ -124,6 +98,16 @@ static int create_derive_key(kvs_securekvs_context_t *ctx, uint8_t *salt_buf, si
 
     return mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), salt_buf, salt_buf_size,
                         encrypt_key, encrypt_key_size, NULL, 0, derive_key, derive_key_size);
+}
+
+static bool is_valid_key(const char *key) {
+    if (key == NULL)
+        return false;
+    if (strlen(key) == 0)
+        return false;
+    if (strlen(key) > 128)
+        return false;
+    return true;
 }
 
 static int gcm_init_and_starts(kvs_securekvs_context_t *ctx, mbedtls_gcm_context *gcm_ctx,
@@ -434,8 +418,13 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
             goto end;
         }
         if (flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG) {
-            os_ret = gcm_update_chunk(ctx->ih->gcm_ctx, ctx->scratch_buf, buffer + current_offset,
-                                      chunk_size);
+            // NOTE: Needed at delete time, but is the MAC calculated?
+            if (buffer_size > 0) {
+                os_ret = gcm_update_chunk(ctx->ih->gcm_ctx, ctx->scratch_buf, buffer + current_offset,
+                                          chunk_size);
+            } else {
+                os_ret = 0;
+            }
 
             if (os_ret) {
                 ret = KVSTORE_ERROR_FAILED_OPERATION;
@@ -484,6 +473,9 @@ static int _set(kvs_t *kvs, const char *key, const void *value, size_t size, uin
     int ret;
     kvs_inc_set_handle_t handle;
 
+    if (!is_valid_key(key))
+        return KVSTORE_ERROR_INVALID_ARGUMENT;
+
     ret = set_start(kvs, &handle, key, size, flags);
     if (ret) {
         return ret;
@@ -502,6 +494,9 @@ static int _set(kvs_t *kvs, const char *key, const void *value, size_t size, uin
 static int _get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size, size_t *actual_size,
                 size_t offset) {
     // mutex.lock();
+    if (!is_valid_key(key))
+        return KVSTORE_ERROR_INVALID_ARGUMENT;
+
     int ret = do_get(kvs, key, buffer, buffer_size, actual_size, offset, NULL);
     // mutex.unlock();
     return ret;
@@ -511,6 +506,9 @@ static int _delete(kvs_t *kvs, const char *key) {
     kvs_info_t info;
 
     // mutex.lock()
+    if (!is_valid_key(key))
+        return KVSTORE_ERROR_INVALID_ARGUMENT;
+
     int ret = do_get(kvs, key, NULL, 0, NULL, 0, &info);
     if ((ret != KVSTORE_SUCCESS) && (ret != KVSTORE_ERROR_AUTHENTICATION_FAILED)) {
         ret = KVSTORE_ERROR_WRITE_PROTECTED;

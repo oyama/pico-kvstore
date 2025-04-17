@@ -253,7 +253,7 @@ static int read_record(kvs_t *kvs, uint8_t bank, uint32_t offset, const char *ke
     uint32_t data_size = header.data_size;
     *flags = header.flags;
 
-    if ((!key_size) || (key_size >= MAX_KEY_SIZE)) {
+    if ((!key_size) || (key_size > MAX_KEY_SIZE)) {
         return KVSTORE_ERROR_INVALID_DATA_DETECTED;
     }
 
@@ -801,6 +801,9 @@ end:
 static int _set(kvs_t *kvs, const char *key, const void *buffer, size_t size, uint32_t flags) {
     int ret;
     kvs_inc_set_handle_t handle;
+
+    if (!is_valid_key(key))
+        return KVSTORE_ERROR_INVALID_ARGUMENT;
     if (!buffer && size) {
         return KVSTORE_ERROR_INVALID_ARGUMENT;
     }
@@ -824,8 +827,9 @@ static int _get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size, s
     uint32_t bd_offset, next_bd_offset;
     uint32_t flags, hash, ram_index_ind;
 
-    // is_valid_key
-
+    if (!is_valid_key(key)) {
+        return KVSTORE_ERROR_INVALID_ARGUMENT;
+    }
     // mutex.lock()
 
     ret = find_record(kvs, context->active_bank, key, &bd_offset, &ram_index_ind, &hash);

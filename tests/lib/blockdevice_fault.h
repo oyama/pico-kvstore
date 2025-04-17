@@ -7,7 +7,7 @@
 
 /** \defgroup blockdevice_fault blockdevice_fault
  *  \ingroup blockdevice
- *  \brief Heap memory block device
+ *  \brief blockdevice that fault on specified conditions
  */
 #ifdef __cplusplus
 extern "C" {
@@ -16,18 +16,25 @@ extern "C" {
 #include <stdint.h>
 #include "blockdevice/blockdevice.h"
 
-/*! \brief Create RAM heap memory block device
- * \ingroup blockdevice_heap
+typedef struct {
+    size_t size;
+    blockdevice_t *underlying;
+    uint32_t program_count;
+    uint32_t fault_from;
+} blockdevice_fault_config_t;
+
+/*! \brief Create a block device that fault on specified conditions
+ * \ingroup blockdevice_fault
  *
- * Create a block device object that uses RAM heap memory.  The size of heap memory allocated to the block device is specified by size.
+ * Create a block device object that fault on specified conditions.
  *
- * \param size Size in bytes to be allocated to the block device.
+ * \param underlying original block device.
  * \return Block device object. Returnes NULL in case of failure.
  * \retval NULL Failed to create block device object.
  */
-blockdevice_t *blockdevice_fault_create(size_t size);
+blockdevice_t *blockdevice_fault_create(blockdevice_t *underlying);
 
-/*! \brief Release the heap memory device.
+/*! \brief Release the fault device.
  * \ingroup blockdevice_fault
  *
  * \param device Block device object.
