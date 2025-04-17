@@ -1,0 +1,59 @@
+name: Run unittest
+on: [push]
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clean workspace
+      run: |
+        echo "Cleaning up previous run"
+        rm -rf "${{ github.workspace }}"
+        mkdir -p "${{ github.workspace }}"
+
+    - name: Install build GNU Arm Embedded Toolchain
+      run: |
+        sudo apt-get -qq update
+        sudo apt-get -qq install gcc-arm-none-eabi
+
+    - name: Checkout pico-sdk/master
+      uses: actions/checkout@v4
+      with:
+        repository: raspberrypi/pico-sdk
+        ref: master
+        path: pico-sdk
+
+    - name: Checkout pico-sdk submodules
+      working-directory: ${{github.workspace}}/pico-sdk
+      run: git submodule update --init
+
+    - name: Checkout pico-kvstore
+      uses: actions/checkout@v4
+      with:
+        path: pico-kvstore
+
+    - name: Checkout pico-kvstore submodules
+      working-directory: ${{github.workspace}}/pico-kvstore
+      run: git submodule update --init
+
+    - name: Create Build Environment
+      working-directory: ${{github.workspace}}/pico-kvstore
+      run:  cmake -E make_directory ${{github.workspace}}/pico-kvstore/build
+
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{github.workspace}}/pico-kvstore/build
+      run: PICO_SDK_PATH=../../pico-sdk cmake .. -DPICO_PLATFORM=host -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+
+    - name: Build
+      working-directory: ${{github.workspace}}/pico-kvstore/build
+      shell: bash
+      run: cmake --build . --target unittest --config $BUILD_TYPE
+
+    - name: Test
+      working-directory: ${{github.workspace}}/pico-kvstore/build
+      shell: bash
+      run: ./tests/unittest
