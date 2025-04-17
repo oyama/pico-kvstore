@@ -2,6 +2,8 @@
 
 **Lightweight and Secure Key-Value Store for Raspberry Pi Pico**
 
+![unittest workflow](https://github.com/oyama/pico-kvstore/actions/workflows/host-unittest.yml/badge.svg)
+
 `pico-kvstore` is a compact yet powerful storage solution tailored specifically for Raspberry Pi Pico (RP2040) and Pico 2 (RP2350). It provides an intuitive API optimized for embedded systems, along with a reliable log-structured storage mechanism and built-in AES-128-GCM encryption, enabling easy and secure data handling.
 
 ---
