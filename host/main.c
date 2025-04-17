@@ -9,7 +9,12 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define DEFAULT_KVSTORE_SIZE   128 * 1024
+#define DEFAULT_KVSTORE_SIZE          128 * 1024
+#define KVSTORE_SECRET_KEY_SIZE       (128 / 8)
+#define KVSTORE_SECRET_KEY_HEX_SIZE   ((128 / 8) * 2)
+#define RP2040_FLASH_ID_SIZE          64
+#define RP2040_FLASH_ID_HEX_SIZE      ((RP2040_FLASH_ID_SIZE / 8) * 2)
+
 
 static uint8_t encrypt_key[16];
 static bool enable_encrypt = false;
@@ -187,6 +192,11 @@ static int command_delete(const char *path, const char *key) {
 }
 
 static int hex_to_bin(const char *hex, uint8_t *bin, size_t bin_len) {
+    if (strlen(hex) > 2) {
+        if (strncmp(hex, "0x", 2) == 0)
+            hex += 2;
+    }
+
     if (strlen(hex) != bin_len * 2)
         return -1;
     for (size_t i = 0; i < bin_len; i++) {
@@ -226,10 +236,14 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
         } else if (strcmp(argv[i], "-e") == 0 && i + 1 < argc) {
-            int res = hex_to_bin(argv[++i], (uint8_t *)encrypt_key, sizeof(encrypt_key));
-            if (res != 0) {
-                fprintf(stderr, "Invalid encrypt-key. It must be a 32-character hexadecimal string.\n");
-                return 1;
+            i++;
+            if (strlen(argv[i]) > 0) {
+                memset(encrypt_key, 0, sizeof(encrypt_key));
+                int res = hex_to_bin(argv[i], (uint8_t *)encrypt_key, strlen(argv[i]) / 2);
+                if (res != 0) {
+                    fprintf(stderr, "Invalid encrypt key. It must be a 16 or 32-character hexadecimal string.\n");
+                    return 1;
+                }
             }
             enable_encrypt = true;
         } else {

@@ -46,17 +46,17 @@ void test_global_kvs(void) {
 
     test_printf("set");
     int result;
-    result = kvs_set(key1, key1_value1, strlen(key1_value1), 0);
+    result = kvs_set(key1, key1_value1, strlen(key1_value1));
     assert(result == KVSTORE_SUCCESS);
 
-    result = kvs_set(key2, key2_value1, strlen(key2_value1), 0);
+    result = kvs_set(key2, key2_value1, strlen(key2_value1));
     assert(result == KVSTORE_SUCCESS);
-    result = kvs_set(key2, key2_value2, strlen(key2_value2), 0);
+    result = kvs_set(key2, key2_value2, strlen(key2_value2));
     assert(result == KVSTORE_SUCCESS);
-    result = kvs_set(key2, key2_value3, strlen(key2_value3), 0);
+    result = kvs_set(key2, key2_value3, strlen(key2_value3));
     assert(result == KVSTORE_SUCCESS);
 
-    result = kvs_set(key3, key3_value1, strlen(key3_value1), 0);
+    result = kvs_set(key3, key3_value1, strlen(key3_value1));
     assert(result == KVSTORE_SUCCESS);
     printf(COLOR_GREEN("ok\n"));
 
@@ -100,17 +100,17 @@ void test_global_kvs_secure(void) {
 
     test_printf("set");
     int result;
-    result = kvs_set(key1, key1_value1, strlen(key1_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs_set(key1, key1_value1, strlen(key1_value1));
     assert(result == KVSTORE_SUCCESS);
 
-    result = kvs_set(key2, key2_value1, strlen(key2_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs_set(key2, key2_value1, strlen(key2_value1));
     assert(result == KVSTORE_SUCCESS);
-    result = kvs_set(key2, key2_value2, strlen(key2_value2), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs_set(key2, key2_value2, strlen(key2_value2));
     assert(result == KVSTORE_SUCCESS);
-    result = kvs_set(key2, key2_value3, strlen(key2_value3), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs_set(key2, key2_value3, strlen(key2_value3));
     assert(result == KVSTORE_SUCCESS);
 
-    result = kvs_set(key3, key3_value1, strlen(key3_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs_set(key3, key3_value1, strlen(key3_value1));
     assert(result == KVSTORE_SUCCESS);
     printf(COLOR_GREEN("ok\n"));
 

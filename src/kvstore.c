@@ -11,7 +11,16 @@ kvs_t *kvs_global_instance(void) { return global_kvs; }
 
 void kvs_assign(kvs_t *kvs) { global_kvs = kvs; }
 
-int kvs_set(const char *key, const void *value, size_t size, uint32_t flags) {
+
+int kvs_set(const char *key, const void *value, size_t size) {
+    kvs_t *kvs = global_kvs;
+    if (kvs == NULL) {
+        return -1;
+    }
+    return kvs->set(kvs, key, value, size, 0);
+}
+
+int kvs_set_flag(const char *key, const void *value, size_t size, uint32_t flags) {
     kvs_t *kvs = global_kvs;
     if (kvs == NULL) {
         return -1;

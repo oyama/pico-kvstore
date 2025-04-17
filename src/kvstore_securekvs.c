@@ -95,7 +95,6 @@ static int create_derive_key(kvs_securekvs_context_t *ctx, uint8_t *salt_buf, si
     } else {
         pico_unique_id_loader(encrypt_key);
     }
-
     return mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), salt_buf, salt_buf_size,
                         encrypt_key, encrypt_key_size, NULL, 0, derive_key, derive_key_size);
 }
@@ -475,6 +474,7 @@ static int _set(kvs_t *kvs, const char *key, const void *value, size_t size, uin
 
     if (!is_valid_key(key))
         return KVSTORE_ERROR_INVALID_ARGUMENT;
+    flags |= KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG;
 
     ret = set_start(kvs, &handle, key, size, flags);
     if (ret) {

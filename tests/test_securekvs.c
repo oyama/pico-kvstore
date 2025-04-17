@@ -33,7 +33,7 @@ static void test_basic_crud(kvs_t *kvs) {
     size_t value_size = 0;
 
     test_printf("create");
-    result = kvs->set(kvs, key1, key1_value1, strlen(key1_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs->set(kvs, key1, key1_value1, strlen(key1_value1), 0);
     assert(result == KVSTORE_SUCCESS);
     printf(COLOR_GREEN("ok\n"));
 
@@ -45,7 +45,7 @@ static void test_basic_crud(kvs_t *kvs) {
     printf(COLOR_GREEN("ok\n"));
 
     test_printf("update");
-    result = kvs->set(kvs, key2, key2_value1, strlen(key2_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs->set(kvs, key2, key2_value1, strlen(key2_value1), 0);
     assert(result == KVSTORE_SUCCESS);
     result = kvs->get(kvs, key2, value, sizeof(value), &value_size, 0);
     assert(result == KVSTORE_SUCCESS);
@@ -73,7 +73,7 @@ static void test_garbage_collection(kvs_t *kvs) {
     uint32_t bank_version = context->bank_version;
 
     while (true) {
-        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), 0);
         assert(result == KVSTORE_SUCCESS);
         if (context->active_bank != active_bank) {
             break;
@@ -84,7 +84,7 @@ static void test_garbage_collection(kvs_t *kvs) {
     active_bank = context->active_bank;
     bank_version = context->bank_version;
     while (true) {
-        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), 0);
         assert(result == KVSTORE_SUCCESS);
         if (context->active_bank != active_bank) {
             break;
@@ -103,7 +103,7 @@ static void test_various_size_key(kvs_t *kvs) {
     size_t value_size;
 
     test_printf("1-byte key");
-    result = kvs->set(kvs, "1", value, strlen(value), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs->set(kvs, "1", value, strlen(value), 0);
     assert(result == KVSTORE_SUCCESS);
     result = kvs->get(kvs, "1", buffer, sizeof(buffer), &value_size, 0);
     assert(result == KVSTORE_SUCCESS);
@@ -115,7 +115,7 @@ static void test_various_size_key(kvs_t *kvs) {
     for (size_t i = 0; i < 128; i++)
         key[i] = 'a' + (i % 26);
     key[128] = '\0';
-    result = kvs->set(kvs, key, value, strlen(value), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs->set(kvs, key, value, strlen(value), 0);
     assert(result == KVSTORE_SUCCESS);
     result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
     assert(result == KVSTORE_SUCCESS);
@@ -127,7 +127,7 @@ static void test_various_size_key(kvs_t *kvs) {
     for (size_t i = 0; i < 129; i++)
         key[i] = 'a' + (i % 26);
     key[129] = '\0';
-    result = kvs->set(kvs, key, value, strlen(value), KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+    result = kvs->set(kvs, key, value, strlen(value), 0);
     assert(result == KVSTORE_ERROR_INVALID_ARGUMENT);
     result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
     assert(result == KVSTORE_ERROR_INVALID_ARGUMENT);
@@ -147,7 +147,7 @@ static void test_various_size_value(kvs_t *kvs) {
         for (size_t i = 0; i < size; i++)
             value[i] = 'a' + (i % 26);
 
-        result = kvs->set(kvs, key, value, size, KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+        result = kvs->set(kvs, key, value, size, 0);
         assert(result == KVSTORE_SUCCESS);
         size_t value_size = 0;
         result = kvs->get(kvs, key, buffer, sizeof(buffer), &value_size, 0);
@@ -178,7 +178,7 @@ static void test_various_size_value_garbage_collection(kvs_t *kvs) {
 
         uint32_t last_bank = context->active_bank;
         while (true) {
-            result = kvs->set(kvs, key, value, size, KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG);
+            result = kvs->set(kvs, key, value, size, 0);
             assert(result == KVSTORE_SUCCESS);
             if (context->active_bank != last_bank) {
                 break;

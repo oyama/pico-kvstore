@@ -1,3 +1,10 @@
+add_executable(demo demo.c)
+target_link_libraries(demo PRIVATE
+  pico_stdlib
+)
+pico_add_extra_outputs(demo)
+
+
 add_executable(hello hello.c)
 target_link_libraries(hello PRIVATE
   pico_stdlib
@@ -7,7 +14,10 @@ target_link_libraries(hello PRIVATE
 pico_enable_stdio_usb(hello 1)
 pico_add_extra_outputs(hello)
 
-add_executable(secure_hello secure_hello.c secure_kvs_init.c)
+add_executable(secure_hello
+  hello.c
+  secure_kvs_init.c
+)
 target_link_libraries(secure_hello PRIVATE
   pico_stdlib
   kvstore
@@ -19,7 +29,10 @@ target_link_libraries(secure_hello PRIVATE
 pico_enable_stdio_usb(secure_hello 1)
 pico_add_extra_outputs(secure_hello)
 
-add_executable(secure_hello_otp secure_hello.c secure_kvs_init_otp.c)
+add_executable(secure_hello_otp
+  hello.c
+  secure_kvs_init_otp.c
+)
 target_link_libraries(secure_hello_otp PRIVATE
   pico_stdlib
   kvstore
