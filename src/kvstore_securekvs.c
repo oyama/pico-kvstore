@@ -22,7 +22,7 @@
 #endif
 
 #define SECURESTORE_REVISION 1
-#define CMAC_SIZE 16
+#define GCM_TAG_SIZE 16
 #define SCRATCH_BUF_SIZE 256
 #define DERIVED_KEY_SIZE (128 / 8)
 
@@ -122,7 +122,7 @@ static int gcm_init_and_starts(kvs_securekvs_context_t *ctx, mbedtls_gcm_context
     if (ret != 0) {
         return ret;
     }
-    ret = mbedtls_gcm_starts(gcm_ctx, encrypt, iv, iv_len, NULL, 0);
+    ret = mbedtls_gcm_starts(gcm_ctx, encrypt, iv, iv_len, aad, aad_len);
     if (ret != 0) {
         return ret;
     }
@@ -140,7 +140,7 @@ static int gcm_finish_and_tag(mbedtls_gcm_context *gcm_ctx, uint8_t *tag, size_t
 
 static int gcm_finish_and_check_tag(mbedtls_gcm_context *gcm_ctx, const uint8_t *tag,
                                     size_t tag_len) {
-    uint8_t calc_tag[16];
+    uint8_t calc_tag[GCM_TAG_SIZE];
     int ret = mbedtls_gcm_finish(gcm_ctx, calc_tag, tag_len);
     if (ret != 0) {
         return ret;
@@ -179,7 +179,7 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
     }
 
     ctx->ih->metadata.create_flags = flags;
-    ctx->ih->metadata.data_size = final_data_size + CMAC_SIZE;
+    ctx->ih->metadata.data_size = final_data_size + GCM_TAG_SIZE;
     ctx->ih->metadata.metadata_size = sizeof(record_metadata_t);
     ctx->ih->metadata.revision = SECURESTORE_REVISION;
     if (flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG) {
@@ -199,7 +199,7 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
 
         ctx->ih->gcm_ctx = calloc(1, sizeof(mbedtls_gcm_context));
         os_ret = gcm_init_and_starts(ctx, ctx->ih->gcm_ctx, ctx->ih->metadata.iv, IV_SIZE,
-                                     derive_key, 128, NULL, 0, MBEDTLS_GCM_ENCRYPT);
+                                     derive_key, 128, key, strlen(key), MBEDTLS_GCM_ENCRYPT);
         mbedtls_platform_zeroize(encrypt_key, sizeof(encrypt_key));
         mbedtls_platform_zeroize(derive_key, sizeof(derive_key));
 
@@ -216,7 +216,7 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
     ctx->ih->key = 0;
 
     ret = underlying_kvs->set_start(underlying_kvs, handle, key,
-                                    sizeof(record_metadata_t) + final_data_size + CMAC_SIZE,
+                                    sizeof(record_metadata_t) + final_data_size + GCM_TAG_SIZE,
                                     flags & ~SECURITY_FLAGS);
     if (ret) {
         goto fail;
@@ -307,7 +307,7 @@ end:
 static int set_add_finalize(kvs_t *kvs, kvs_inc_set_handle_t *handle) {
     int os_ret;
     int ret = KVSTORE_SUCCESS;
-    uint8_t tag_buf[CMAC_SIZE] = {0};
+    uint8_t tag_buf[GCM_TAG_SIZE] = {0};
 
     kvs_securekvs_context_t *ctx = kvs->context;
 
@@ -315,23 +315,23 @@ static int set_add_finalize(kvs_t *kvs, kvs_inc_set_handle_t *handle) {
     //     return KVSTORE_ERROR_INVALID_ARGUMENT;
     if (!ctx->ih->metadata.metadata_size)
         return KVSTORE_ERROR_INVALID_ARGUMENT;
-    if (ctx->ih->offset_in_data != ctx->ih->metadata.data_size - CMAC_SIZE) {
+    if (ctx->ih->offset_in_data != ctx->ih->metadata.data_size - GCM_TAG_SIZE) {
         ret = KVSTORE_ERROR_FAILED_OPERATION;
         goto end;
     }
 
     if (ctx->ih->metadata.create_flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG && ctx->ih->gcm_ctx) {
-        os_ret = gcm_finish_and_tag(ctx->ih->gcm_ctx, tag_buf, CMAC_SIZE);
+        os_ret = gcm_finish_and_tag(ctx->ih->gcm_ctx, tag_buf, GCM_TAG_SIZE);
         if (os_ret) {
             ret = KVSTORE_ERROR_FAILED_OPERATION;
             goto end;
         }
     } else {
-        memset(tag_buf, 0, CMAC_SIZE);
+        memset(tag_buf, 0, GCM_TAG_SIZE);
     }
 
     kvs_t *underlying_kvs = ctx->underlying_kvs;
-    ret = underlying_kvs->set_add_data(underlying_kvs, handle, tag_buf, CMAC_SIZE);
+    ret = underlying_kvs->set_add_data(underlying_kvs, handle, tag_buf, GCM_TAG_SIZE);
     if (ret)
         goto end;
     ret = underlying_kvs->set_finalize(underlying_kvs, handle);
@@ -385,7 +385,7 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
 
         ctx->ih->gcm_ctx = calloc(1, sizeof(mbedtls_gcm_context));
         os_ret = gcm_init_and_starts(ctx, ctx->ih->gcm_ctx, ctx->ih->metadata.iv, IV_SIZE,
-                                     derive_key, 128, NULL, 0, MBEDTLS_GCM_DECRYPT);
+                                     derive_key, 128, key, strlen(key), MBEDTLS_GCM_DECRYPT);
         mbedtls_platform_zeroize(encrypt_key, sizeof(encrypt_key));
         mbedtls_platform_zeroize(derive_key, sizeof(derive_key));
         if (os_ret) {
@@ -395,7 +395,7 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
         enc_started = true;
     }
 
-    uint32_t data_size = ctx->ih->metadata.data_size - CMAC_SIZE;
+    uint32_t data_size = ctx->ih->metadata.data_size - GCM_TAG_SIZE;
     uint32_t actual_data_size = MIN((uint32_t)buffer_size, data_size - offset);
     uint32_t current_offset = 0;
     uint32_t chunk_size;
@@ -436,15 +436,15 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
     if (actual_size)
         *actual_size = actual_data_size;
 
-    uint8_t read_tag[CMAC_SIZE];
+    uint8_t read_tag[GCM_TAG_SIZE];
     ret = underlying_kvs->get(
-        underlying_kvs, key, read_tag, CMAC_SIZE, 0,
-        ctx->ih->metadata.metadata_size + ctx->ih->metadata.data_size - CMAC_SIZE);
+        underlying_kvs, key, read_tag, GCM_TAG_SIZE, 0,
+        ctx->ih->metadata.metadata_size + ctx->ih->metadata.data_size - GCM_TAG_SIZE);
     if (ret) {
         goto end;
     }
     if (flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG && ctx->ih->gcm_ctx) {
-        os_ret = gcm_finish_and_check_tag(ctx->ih->gcm_ctx, read_tag, CMAC_SIZE);
+        os_ret = gcm_finish_and_check_tag(ctx->ih->gcm_ctx, read_tag, GCM_TAG_SIZE);
         if (os_ret) {
             ret = KVSTORE_ERROR_AUTHENTICATION_FAILED;
             goto end;
@@ -455,7 +455,7 @@ static int do_get(kvs_t *kvs, const char *key, void *buffer, size_t buffer_size,
 
     if (info) {
         info->flags = ctx->ih->metadata.create_flags;
-        info->size = ctx->ih->metadata.data_size - CMAC_SIZE;
+        info->size = ctx->ih->metadata.data_size - GCM_TAG_SIZE;
     }
 
 end:
