@@ -12,13 +12,10 @@
 #include "mbedtls/md.h"
 #include "mbedtls/platform_util.h"
 #include "kvstore_securekvs.h"
+#include "pico/rand.h"
 
 #if PICO_ON_DEVICE
-#include "pico/rand.h"
 #include "pico/unique_id.h"
-#else
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/entropy.h"
 #endif
 
 #define SECURESTORE_REVISION 1
@@ -35,43 +32,6 @@ static const char *ENCRYPT_PREFIX = "ENC";
 
 static const uint32_t SECURITY_FLAGS =
     KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG | KVSTORE_REQUIRE_REPLAY_PROTECTION_FLAG;
-
-/*
- * NOTE: The pico-sdk in the host environment does not include pico_rand,
- *       pico_mbedtls_crypto, or pico_unique_id, so they need to be followed.
- */
-#if !PICO_ON_DEVICE
-
-typedef uint8_t rng_128_t;
-
-void get_rand_128(rng_128_t *rand) {
-    uint8_t *out = rand;
-    int ret = 0;
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
-    const char *pers = "my_random_personalization";
-
-    mbedtls_entropy_init(&entropy);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-    ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                  (const unsigned char *) pers, strlen(pers));
-    if (ret != 0) {
-        fprintf(stderr, "mbedtls_ctr_drbg_seed failed: -0x%04x\n", -ret);
-        goto cleanup;
-    }
-
-    ret = mbedtls_ctr_drbg_random(&ctr_drbg, out, 16);
-    if (ret != 0)
-    {
-        fprintf(stderr, "mbedtls_ctr_drbg_random failed: -0x%04x\n", -ret);
-        goto cleanup;
-    }
-cleanup:
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-    return;
-}
-#endif
 
 static int pico_unique_id_loader(uint8_t *key) {
     // NOTE: IS NOT SECURE
@@ -114,34 +74,41 @@ static int gcm_init_and_starts(kvs_securekvs_context_t *ctx, mbedtls_gcm_context
                                size_t key_bits, const void *aad, size_t aad_len,
                                int encrypt) {
     (void)ctx;
-    (void)aad;
-    (void)aad_len;
     int ret;
     mbedtls_gcm_init(gcm_ctx);
     ret = mbedtls_gcm_setkey(gcm_ctx, MBEDTLS_CIPHER_ID_AES, key_data, key_bits);
     if (ret != 0) {
         return ret;
     }
-    ret = mbedtls_gcm_starts(gcm_ctx, encrypt, iv, iv_len, aad, aad_len);
+    ret = mbedtls_gcm_starts(gcm_ctx, encrypt, iv, iv_len);
     if (ret != 0) {
         return ret;
+    }
+    if (aad != NULL && aad_len > 0) {
+        ret = mbedtls_gcm_update_ad(gcm_ctx, aad, aad_len);
+        if (ret != 0) {
+            return ret;
+        }
     }
     return ret;
 }
 
 static int gcm_update_chunk(mbedtls_gcm_context *gcm_ctx, const uint8_t *input, uint8_t *output,
                             size_t length) {
-    return mbedtls_gcm_update(gcm_ctx, length, input, output);
+    size_t output_length = 0;
+    return mbedtls_gcm_update(gcm_ctx, input, length, output, length, &output_length);
 }
 
 static int gcm_finish_and_tag(mbedtls_gcm_context *gcm_ctx, uint8_t *tag, size_t tag_len) {
-    return mbedtls_gcm_finish(gcm_ctx, tag, tag_len);
+    size_t output_length = 0;
+    return mbedtls_gcm_finish(gcm_ctx, NULL, 0, &output_length, tag, tag_len);
 }
 
 static int gcm_finish_and_check_tag(mbedtls_gcm_context *gcm_ctx, const uint8_t *tag,
                                     size_t tag_len) {
     uint8_t calc_tag[GCM_TAG_SIZE];
-    int ret = mbedtls_gcm_finish(gcm_ctx, calc_tag, tag_len);
+    size_t output_length = 0;
+    int ret = mbedtls_gcm_finish(gcm_ctx, NULL, 0, &output_length, calc_tag, tag_len);
     if (ret != 0) {
         return ret;
     }
@@ -183,7 +150,7 @@ static int set_start(kvs_t *kvs, kvs_inc_set_handle_t *handle, const char *key,
     ctx->ih->metadata.metadata_size = sizeof(record_metadata_t);
     ctx->ih->metadata.revision = SECURESTORE_REVISION;
     if (flags & KVSTORE_REQUIRE_CONFIDENTIALITY_FLAG) {
-        get_rand_128((rng_128_t *)&ctx->ih->metadata.iv);
+        get_rand_128(&ctx->ih->metadata.iv);
 
         uint8_t encrypt_key[DERIVED_KEY_SIZE] = {0};
         uint8_t derive_key[DERIVED_KEY_SIZE] = {0};
