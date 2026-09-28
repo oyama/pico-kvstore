@@ -1,10 +1,3 @@
-add_executable(demo demo.c)
-target_link_libraries(demo PRIVATE
-  pico_stdlib
-)
-pico_add_extra_outputs(demo)
-
-
 add_executable(hello hello.c)
 target_link_libraries(hello PRIVATE
   pico_stdlib
