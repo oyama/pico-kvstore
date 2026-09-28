@@ -33,15 +33,9 @@ endif()
 
 # The following libraries are not supported in the pico-sdk host environment.
 # This implementation uses an alternate implementation.
-if(NOT TARGET pico_rand)
-    add_library(pico_rand INTERFACE)
-endif()
 if(NOT TARGET pico_mbedtls_crypto)
     add_library(pico_mbedtls_crypto INTERFACE)
 endif()
 if(NOT TARGET pico_mbedtls_headers)
     add_library(pico_mbedtls_headers INTERFACE)
-endif()
-if(NOT TARGET pico_unique_id)
-    add_library(pico_unique_id INTERFACE)
 endif()
