@@ -37,8 +37,6 @@ else()
   endif()
 
   target_link_libraries(unittest PRIVATE mbedcrypto)
-  add_library(pico_rand INTERFACE)
-  add_library(pico_unique_id INTERFACE)
   add_library(pico_mbedtls_crypto INTERFACE)
   add_library(pico_mbedtls_headers INTERFACE)
   target_compile_options(pico_time INTERFACE -Wno-ignored-attributes)
