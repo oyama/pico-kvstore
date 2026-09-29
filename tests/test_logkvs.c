@@ -188,6 +188,88 @@ static void test_various_size_value_garbage_collection(kvs_t *kvs) {
     }
 }
 
+/* kvs_logkvs_create() decides which bank to mount exactly once, at create
+ * time, so the only way to exercise that decision is to remount. A single
+ * garbage collection proves nothing here: it moves the active bank from 0 to
+ * 1, and the pre-fix mount's both-banks-valid fallback keeps whatever the
+ * scan loop assigned last -- which is always bank 1 -- so a lone GC "passes"
+ * by accident regardless of which bank is actually correct. A second
+ * collection is needed to bring the active bank back to 0, leaving bank 1
+ * full and stale. Only then does a remount actually discriminate: the
+ * correct answer is bank 0, but the pre-fix fallback always says bank 1.
+ *
+ * Earlier cases in this suite may leave either bank active, so this case
+ * first normalizes to bank 0 with however many single-GC flips that takes
+ * (0 or 1), rather than assuming what ran before it. Skipping that step and
+ * simply recording whichever bank happened to be active would silently stop
+ * discriminating the defect whenever that bank was already 1 -- the buggy
+ * fallback's answer would coincidentally match the correct one.
+ *
+ * The remount itself is a bare kvs_logkvs_create(device) with no preceding
+ * kvs_logkvs_free(). A real reboot never frees anything either -- the old
+ * in-RAM state just goes away when the device resets, and the flash is what
+ * survives. Calling kvs_logkvs_free() first would be the wrong simulation on
+ * this test double: it flushes through to the underlying blockdevice's own
+ * deinit, which for blockdevice_heap releases the malloc'd buffer that IS
+ * the storage under test -- destroying the very state a remount is supposed
+ * to read back. Recreating without freeing leaves that old kvs_t
+ * unreachable for the rest of the test, same as it would be after a real
+ * reboot. */
+static kvs_t *test_bank_selection_after_remount(kvs_t *kvs, blockdevice_t *device) {
+    kvs_logkvs_context_t *context = kvs->context;
+    int result;
+    char value[16] = {0};
+    size_t value_size = 0;
+    const char *canary = "remount_canary";
+
+    test_printf("bank selection across a remount");
+
+    while (context->active_bank != 0) {
+        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), 0);
+        assert(result == KVSTORE_SUCCESS);
+    }
+
+    result = kvs->set(kvs, canary, "first", strlen("first"), 0);
+    assert(result == KVSTORE_SUCCESS);
+    while (true) {
+        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), 0);
+        assert(result == KVSTORE_SUCCESS);
+        if (context->active_bank != 0) {
+            break;
+        }
+    }
+    assert(context->active_bank == 1);
+
+    result = kvs->set(kvs, canary, "second", strlen("second"), 0);
+    assert(result == KVSTORE_SUCCESS);
+    while (true) {
+        result = kvs->set(kvs, key3, key3_value1, strlen(key3_value1), 0);
+        assert(result == KVSTORE_SUCCESS);
+        if (context->active_bank != 1) {
+            break;
+        }
+    }
+    assert(context->active_bank == 0);
+
+    result = kvs->set(kvs, canary, "third", strlen("third"), 0);
+    assert(result == KVSTORE_SUCCESS);
+
+    kvs = kvs_logkvs_create(device);
+    assert(kvs != NULL);
+    context = kvs->context;
+
+    assert(context->active_bank == 0);
+
+    result = kvs->get(kvs, canary, value, sizeof(value), &value_size, 0);
+    assert(result == KVSTORE_SUCCESS);
+    assert(value_size == strlen("third"));
+    assert(memcmp("third", value, value_size) == 0);
+
+    printf(COLOR_GREEN("ok\n"));
+
+    return kvs;
+}
+
 void test_kvstore_logkvs(void) {
 #if PICO_ON_DEVICE
     printf("Log Key-Value Store, Flash memory:\n");
@@ -206,6 +288,7 @@ void test_kvstore_logkvs(void) {
     test_various_size_key(kvs);
     test_various_size_value(kvs);
     test_various_size_value_garbage_collection(kvs);
+    kvs = test_bank_selection_after_remount(kvs, device);
 
     cleanup(device);
     kvs_logkvs_free(kvs);

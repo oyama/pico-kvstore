@@ -536,6 +536,40 @@ end:
     return ret;
 }
 
+/* Walk one bank's record log and report the offset just past its last valid
+ * record. Only used to disambiguate two banks carrying the same master-record
+ * version, a state legacy stores are stuck in (see the selection logic in
+ * kvs_logkvs_create). Deliberately tolerant: a scan that stops early on
+ * damaged data still yields a usable extent for the comparison, so this
+ * never fails the mount. Cost is one extra bank-sized walk at boot, and only
+ * when the versions actually tie. */
+static void scan_bank_log_end(kvs_t *kvs, uint8_t bank, uint32_t *log_end)
+{
+    kvs_logkvs_context_t *context = kvs->context;
+
+    uint32_t offset = context->master_record_offset;
+    uint32_t next_offset = 0;
+    uint32_t actual_data_size = 0;
+    uint32_t hash = 0;
+    uint32_t flags = 0;
+
+    while (offset + sizeof(record_header_t) < context->size) {
+        /* copy_key is false: only next_offset is consumed here, so there is no
+         * reason to copy each key out. read_record() then chunks the key
+         * through work_buf and only advances user_key_ptr without
+         * dereferencing it. key_buf is still passed rather than NULL because
+         * that pointer advance on NULL would be undefined. */
+        int ret = read_record(kvs, bank, offset, context->key_buf, 0, 0, &actual_data_size, 0, false,
+                              false, false, false, &hash, &flags, &next_offset);
+        if (ret != KVSTORE_SUCCESS)
+            break;
+        if (next_offset <= offset)  /* no forward progress — treat as damaged */
+            break;
+        offset = next_offset;
+    }
+    *log_end = offset;
+}
+
 static void update_all_iterators(kvs_t *kvs, bool added, uint32_t ram_index_ind) {
     kvs_logkvs_context_t *context = kvs->context;
 
@@ -954,7 +988,7 @@ kvs_t *kvs_logkvs_create(blockdevice_t *bd) {
     int ret = KVSTORE_SUCCESS;
     uint32_t flags;
     uint32_t hash;
-    master_record_data_t master_rec;
+    master_record_data_t master_rec = {0};
     uint32_t next_offset;
 
     kvs_t *kvs = calloc(1, sizeof(kvs_t));
@@ -1026,6 +1060,9 @@ kvs_t *kvs_logkvs_create(blockdevice_t *bd) {
     bank_state_t bank_state[KVSTORE_NUM_BANK];
 
     size_t _size = (size_t)-1;
+    /* Capture each bank's on-flash master-record version at read time so the
+     * selection below can compare them. */
+    uint16_t bank_ver[KVSTORE_NUM_BANK] = {0};
     for (uint8_t bank = 0; bank < KVSTORE_NUM_BANK; bank++) {
         bank_state[bank] = KVSTORE_BANK_STATE_NONE;
 
@@ -1044,7 +1081,20 @@ kvs_t *kvs_logkvs_create(blockdevice_t *bd) {
         }
 
         bank_state[bank] = KVSTORE_BANK_STATE_VALID;
+        /* Only a clean read leaves master_rec trustworthy. The tolerated
+         * non-success returns above either bail out before the data buffer is
+         * touched (READ_FAILED) or fill it from a record that is not the
+         * master record (ITEM_NOT_FOUND on a foreign key at this offset), so
+         * reading .version on those paths would invent a version. Leaving it
+         * at 0 keeps this bank losing the comparison below rather than
+         * winning it with garbage — and a garbage version would persist,
+         * since the next garbage collection writes bank_version + 1 to flash. */
+        if (ret == KVSTORE_SUCCESS) {
+            bank_ver[bank] = master_rec.version;
+        }
 
+        /* Provisional: correct when exactly one bank is valid. The both-valid
+         * case is resolved properly below. */
         context->active_bank = bank;
     }
     if ((bank_state[0] == KVSTORE_BANK_STATE_INVALID) &&
@@ -1064,10 +1114,63 @@ kvs_t *kvs_logkvs_create(blockdevice_t *bd) {
 
     if ((bank_state[0] == KVSTORE_BANK_STATE_VALID) &&
         (bank_state[1] == KVSTORE_BANK_STATE_VALID)) {
-        ;  //
+        /* Both banks are valid, so pick the one with the newer master-record
+         * version. Without this, active_bank keeps whatever the scan loop
+         * above assigned last (always bank 1), and a device whose most
+         * recent garbage collection landed on bank 0 mounts the stale bank 1
+         * on its next boot. Because a bank is abandoned precisely when it
+         * fills, that stale bank is always at or near its boundary. */
+        if (bank_ver[0] != bank_ver[1]) {
+            /* Signed difference so a uint16_t wrap compares correctly. */
+            context->active_bank = ((int16_t)(bank_ver[0] - bank_ver[1]) > 0) ? 0 : 1;
+        } else {
+            /* Versions tie. Every device provisioned before this patch is
+             * permanently in this state, so we cannot simply trust the version
+             * and must infer which bank the last GC wrote.
+             *
+             * A bank is abandoned when it can no longer fit the record being
+             * written, so the abandoned bank is at/near full while the bank
+             * just compacted into holds only the live set. Prefer the bank that
+             * can still accept a record; failing that, the shorter log.
+             *
+             * This is a heuristic and it is wrong in one case: if a bank was
+             * abandoned early (GC can also fire from the incomplete-set guard
+             * in _set_start, well below full) and the current bank has since
+             * grown past that point, the shorter-log rule picks the stale bank.
+             * Accepted because it self-heals — the next GC writes a real
+             * incremented version, the versions diverge, and this branch is
+             * never taken on that device again. */
+            uint32_t end0 = 0, end1 = 0;
+            scan_bank_log_end(kvs, 0, &end0);
+            scan_bank_log_end(kvs, 1, &end1);
+
+            bool full0 = (end0 + sizeof(record_header_t) >= context->size);
+            bool full1 = (end1 + sizeof(record_header_t) >= context->size);
+
+            if (full0 != full1)
+                context->active_bank = full0 ? 1 : 0;
+            else if (end0 != end1)
+                context->active_bank = (end0 < end1) ? 0 : 1;
+            /* else: genuinely indistinguishable — keep the loop's pick. */
+        }
     }
 
-    context->free_space_offset = _size;
+    /* Restore the version of whichever bank was mounted. Without this,
+     * context->bank_version stays at its calloc'd 0 and every
+     * garbage_collection() writes version 1, permanently defeating the
+     * comparison above. */
+    context->bank_version = bank_ver[context->active_bank];
+
+    /* _size is never updated inside the master-scan loop above — it stays at
+     * (size_t)-1, which gives build_ram_index() an unbounded scan window and
+     * causes read_bank() to return READ_FAILED when the log approaches the
+     * bank boundary. That READ_FAILED cascades through build_ram_index() to
+     * kvs_logkvs_create() returning NULL, so any device whose bank fills to
+     * within sizeof(record_header_t) of the boundary fails to mount on
+     * reboot. Bound the scan by the bank size so the loop exits cleanly at
+     * the boundary; build_ram_index() still finds the true free space via
+     * next_offset from the last valid record. */
+    context->free_space_offset = context->size;
     ret = build_ram_index(kvs);
     if ((ret != KVSTORE_SUCCESS) && (ret != KVSTORE_ERROR_INVALID_DATA_DETECTED)) {
         goto fail;
